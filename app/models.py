@@ -8,6 +8,11 @@ from datetime import datetime
 Base = declarative_base()
 
 
+class EventType(enum.Enum):
+    MATCH = "MATCH"
+    OUTRIGHT = "OUTRIGHT"
+
+
 class BookmakerType(enum.Enum):
     HA = "HA"
     ARJEL = "ARJEL"
@@ -129,8 +134,10 @@ class Match(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     sport_id = Column(Integer, ForeignKey('sport.id', ondelete="CASCADE"), nullable=False)
     league_id = Column(Integer, ForeignKey('league.id', ondelete="CASCADE"))
-    home_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=False)
-    away_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=False)
+    event_type = Column(Enum(EventType, name="event_type"), default=EventType.MATCH, nullable=False)
+    name = Column(String(150), nullable=True)
+    home_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=True)
+    away_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=True)
     start_time = Column(DateTime, nullable=False)
 
     league = relationship("League", back_populates="matches")
@@ -142,6 +149,7 @@ class Match(Base):
     __table_args__ = (
         Index('ix_match_league_id', 'league_id'),
         Index('ix_match_all', 'sport_id', 'league_id', 'home_team_id', 'away_team_id'),
+        Index('ix_match_event_type', 'event_type')
     )
 
 
