@@ -167,7 +167,7 @@ def get_match_odds(
                     last_update=bo.last_update
                 ))
 
-                if best_odd is None or bo.odds > best_odd:
+                if bo.odds is not None and (best_odd is None or bo.odds > best_odd):
                     best_odd = bo.odds
                     best_bookmaker = bo.bookmaker.name
 
@@ -305,13 +305,16 @@ def get_matches_with_best_odds(
                 if not outcome.bookmaker_odds:
                     continue
 
-                values = [bo.odds for bo in outcome.bookmaker_odds]
+                values = [bo.odds for bo in outcome.bookmaker_odds if bo.odds is not None]
+                if not values:
+                    continue
+
                 best_value = max(values)
                 EPS = 1e-6
                 best_books = [
                     bo.bookmaker.name
                     for bo in outcome.bookmaker_odds
-                    if abs(bo.odds - best_value) < EPS
+                    if bo.odds is not None and abs(bo.odds - best_value) < EPS
                 ]
 
                 best_odds_map[key] = BestOutcomeOddsResponse(

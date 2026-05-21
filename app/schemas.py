@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional, List
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegister(BaseModel):
@@ -63,11 +64,11 @@ class MatchResponse(BaseModel):
     id: int
     sport_id: int
     league_id: Optional[int]
-    home_team_id: int
-    away_team_id: int
+    home_team_id: Optional[int] = None
+    away_team_id: Optional[int] = None
     start_time: datetime
-    home_team: TeamResponse
-    away_team: TeamResponse
+    home_team: Optional[TeamResponse] = None
+    away_team: Optional[TeamResponse] = None
     league: Optional[LeagueResponse] = None
 
     class Config:
@@ -84,7 +85,7 @@ class BookmakerResponse(BaseModel):
 
 class BookmakerOddResponse(BaseModel):
     bookmaker: BookmakerResponse
-    odds: float
+    odds: Optional[float]
     edge_odds: Optional[float]
     last_update: datetime
 
