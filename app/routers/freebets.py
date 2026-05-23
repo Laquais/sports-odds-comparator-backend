@@ -40,7 +40,7 @@ def get_freebet_opportunities(
             FROM bookmaker_odd AS bo
             JOIN outcome AS o ON o.id = bo.outcome_id
             JOIN match_market AS mm ON mm.id = o.match_market_id
-            JOIN `match` AS m ON m.id = mm.match_id
+            JOIN "match" AS m ON m.id = mm.match_id
             JOIN market AS mk ON mk.id = mm.market_id
             JOIN team AS ht ON ht.id = m.home_team_id
             JOIN team AS at ON at.id = m.away_team_id
@@ -69,7 +69,7 @@ def get_freebet_opportunities(
         FROM bookmaker_odd AS bo
         JOIN outcome AS o ON o.id = bo.outcome_id
         JOIN match_market AS mm ON mm.id = o.match_market_id
-        JOIN `match` AS m ON m.id = mm.match_id
+        JOIN "match" AS m ON m.id = mm.match_id
         JOIN market AS mk ON mk.id = mm.market_id
         JOIN team AS ht ON ht.id = m.home_team_id
         JOIN team AS at ON at.id = m.away_team_id

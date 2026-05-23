@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, exists, distinct
 from typing import List, Optional
 from datetime import datetime
 from ..database import get_db
@@ -15,6 +15,7 @@ from ..schemas import (
     BookmakerOddResponse,
     BookmakerResponse,
     MarketResponse,
+    MarketOptionsResponse,
     MatchWithBestOddsResponse,
     BestOutcomeOddsResponse,
     BestEVOpportunityResponse,
@@ -39,7 +40,9 @@ def get_sports(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    sports = db.query(Sport).order_by(Sport.name).all()
+    sports = db.query(Sport).filter(
+        exists().where(Match.sport_id == Sport.id)
+    ).order_by(Sport.name).all()
     return sports
 
 
@@ -210,6 +213,28 @@ def get_markets_by_sport(
         .all()
     )
     return markets
+
+
+@router.get("/sports/{sport_id}/markets/{market_id}/options", response_model=MarketOptionsResponse)
+def get_market_options(
+    sport_id: int,
+    market_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    base = (
+        db.query(MatchMarket)
+        .join(Match, MatchMarket.match_id == Match.id)
+        .filter(Match.sport_id == sport_id, MatchMarket.market_id == market_id)
+    )
+
+    period_rows = base.with_entities(distinct(MatchMarket.period)).filter(MatchMarket.period.isnot(None)).all()
+    line_rows = base.with_entities(distinct(MatchMarket.line)).filter(MatchMarket.line.isnot(None)).all()
+
+    periods = sorted(r[0].value for r in period_rows)
+    lines = sorted(r[0] for r in line_rows)
+
+    return MarketOptionsResponse(periods=periods, lines=lines)
 
 
 @router.get(

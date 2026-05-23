@@ -114,6 +114,11 @@ class MarketResponse(BaseModel):
         from_attributes = True
 
 
+class MarketOptionsResponse(BaseModel):
+    periods: List[str]
+    lines: List[float]
+
+
 class MatchMarketResponse(BaseModel):
     id: int
     market: MarketResponse

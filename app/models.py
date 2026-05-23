@@ -1,5 +1,5 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, ForeignKey, DateTime, UniqueConstraint, Index, Enum
@@ -19,27 +19,22 @@ class BookmakerType(enum.Enum):
     ARJEL = "ARJEL"
 
 
-class MarketType(enum.Enum):
-    ML = "ML"  # moneyline full time
-    H = "H"  # handicap full time
-    OU = "OU"  # over under full time
-    OU_HALF = "OU_HALF"  # over under half-time
-    OU_BY_TEAM = "OU_BY_TEAM"  # over under for a team
-    OU_BY_TEAM_HALF = "OU_BY_TEAM_HALF"  # over under for a team half-time
-    ML_HALF = "ML_HALF"  # moneyline half-time
-    ML_HALF_2 = "ML_HALF_2"  # moneyline half-time 2
-    H_HALF = "H_HALF"  # handicap half-time
-    ML_RT = "ML_RT"  # moneyline regular time
-    H_RT = "H_RT"  # handicap regular time
-    OU_RT = "OU_RT"  # over under regular time
-    OU_BY_TEAM_RT = "OU_BY_TEAM_RT"  # over under for a team regular time
-    OU_BY_TEAM_RT_2 = "OU_BY_TEAM_RT_2"  # over under for a team regular time 2
-    H_GAMES = "H_GAMES"  # handicap games for tennis, volley, etc
-    OU_GAMES = "OU_GAMES"  # over under games for tennis, volley, etc
+class PeriodType(enum.Enum):
+    FT = "FT"  # Full Time
+    RT = "RT"  # Regular Time (excl. overtime)
+    H1 = "1H"  # First half / first set
+    H2 = "2H"  # Second half / second set
 
-    # MARKET FOR OUTRIGHTS
-    WINNER = "WINNER"
-    H2H = "H2H"
+
+class MarketType(enum.Enum):
+    ML = "ML"
+    H = "H"
+    OU = "OU"
+    OU_BY_TEAM = "OU_BY_TEAM"
+    H_GAMES = "H_GAMES"  # handicap games (tennis, volleyball…)
+    OU_GAMES = "OU_GAMES"  # over/under games (tennis, volleyball…)
+    WINNER = "WINNER"  # outright winner
+    H2H = "H2H"  # head-to-head outright
 
 
 class User(Base):
@@ -200,7 +195,7 @@ class Market(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     sport_id = Column(Integer, ForeignKey("sport.id", ondelete="CASCADE"))
     market_type = Column(Enum(MarketType, name="market_type_enum"), nullable=False)
-    name = Column(String(50), nullable=False)
+    name = Column(String(50), nullable=False)  # "moneyline", "over_under", "handicap"
     description = Column(String(200), nullable=True)
 
     sport = relationship("Sport", back_populates="markets")
@@ -218,7 +213,7 @@ class MatchMarket(Base):
     match_id = Column(Integer, ForeignKey("match.id", ondelete="CASCADE"))
     market_id = Column(Integer, ForeignKey("market.id", ondelete="CASCADE"))
     line = Column(Float, nullable=True)  # pour over/under & handicap (ex: 2.5, -1.5)
-    period = Column(String(20), nullable=True)  # "FT", "1H", "2H", "Q1"...
+    period = Column(Enum(PeriodType, name="period_type", values_callable=lambda x: [e.value for e in x]), nullable=True)
 
     match = relationship("Match", back_populates="match_markets")
     market = relationship("Market", back_populates="match_markets")
@@ -235,7 +230,8 @@ class Outcome(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     match_market_id = Column(Integer, ForeignKey("match_market.id", ondelete="CASCADE"))
     label = Column(String(30), nullable=False)  # "home", "away", "draw", "over", "under"
-    team_id = Column(Integer, ForeignKey("team.id"), nullable=True)  # pour markets comme "Team total"
+    team_id = Column(Integer, ForeignKey("team.id", ondelete="CASCADE"),
+                     nullable=True)  # pour markets comme "Team total"
     fair_odds = Column(Float, nullable=True)  # FO_i
     fair_source_bookmaker_id = Column(Integer, ForeignKey("bookmaker.id"), nullable=True)
     fair_computed_at = Column(DateTime, nullable=True)
@@ -258,7 +254,7 @@ class BookmakerOdd(Base):
     odds = Column(Float, nullable=True)
     edge_odds = Column(Float, nullable=True)  # (odds / fair_odds) - 1
     edge_freebet = Column(Float, nullable=True)
-    last_update = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_update = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     bookmaker = relationship("Bookmaker")
     outcome = relationship("Outcome", back_populates="bookmaker_odds")
@@ -308,13 +304,15 @@ class BookmakerMarket(Base):
     bookmaker_id = Column(Integer, ForeignKey('bookmaker.id', ondelete="CASCADE"), nullable=False)
     market_id = Column(Integer, ForeignKey('market.id', ondelete="CASCADE"), nullable=False)
     bookmaker_market_name = Column(String(150), nullable=False)
+    period = Column(Enum(PeriodType, name="period_type", values_callable=lambda x: [e.value for e in x]),
+                    nullable=True, server_default=PeriodType.FT.value)
 
     bookmaker = relationship("Bookmaker")
     market = relationship("Market")
 
     __table_args__ = (
-        UniqueConstraint('bookmaker_id', 'market_id', 'bookmaker_market_name', name='uix_bookmaker_market_name'),
-        Index('ix_bookmaker_market_lookup', 'bookmaker_id', 'market_id', 'bookmaker_market_name'),
+        UniqueConstraint('bookmaker_id', 'bookmaker_market_name', name='uix_bookmaker_market_name'),
+        Index('ix_bookmaker_market_lookup', 'bookmaker_id', 'bookmaker_market_name'),
     )
 
 
@@ -348,8 +346,8 @@ class Promotion(Base):
 
     min_required_ev = Column(Float, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
     bookmaker = relationship("Bookmaker")
 
