@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, exists, distinct
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_, exists, distinct
+from sqlalchemy.orm import Session, joinedload
+
+from ..auth import get_current_user
 from ..database import get_db
 from ..models import User, Sport, League, Match, MatchMarket, Outcome, BookmakerOdd, Bookmaker, Market, Team
 from ..schemas import (
@@ -21,15 +24,14 @@ from ..schemas import (
     BestEVOpportunityResponse,
     BestEVListResponse
 )
-from ..auth import get_current_user
 
 router = APIRouter(tags=["Odds"])
 
 
 @router.get("/bookmakers", response_model=List[BookmakerResponse])
 def get_bookmakers(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     bookmakers = db.query(Bookmaker).order_by(Bookmaker.name).all()
     return bookmakers
@@ -37,8 +39,8 @@ def get_bookmakers(
 
 @router.get("/sports", response_model=List[SportResponse])
 def get_sports(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     sports = db.query(Sport).filter(
         exists().where(Match.sport_id == Sport.id)
@@ -48,9 +50,9 @@ def get_sports(
 
 @router.get("/sports/{sport_id}/leagues", response_model=List[LeagueResponse])
 def get_leagues_by_sport(
-    sport_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        sport_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     sport = db.query(Sport).filter(Sport.id == sport_id).first()
     if not sport:
@@ -62,19 +64,19 @@ def get_leagues_by_sport(
 
 @router.get("/sports/{sport_id}/matches", response_model=List[MatchResponse])
 def get_matches_by_sport(
-    sport_id: int,
-    league_ids: Optional[str] = Query(None),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    search: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        sport_id: int,
+        league_ids: Optional[str] = Query(None),
+        start_date: Optional[datetime] = Query(None),
+        end_date: Optional[datetime] = Query(None),
+        search: Optional[str] = Query(None),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     sport = db.query(Sport).filter(Sport.id == sport_id).first()
     if not sport:
         raise HTTPException(status_code=404, detail="Sport not found")
 
-    query = db.query(Match).filter(Match.sport_id == sport_id)
+    query = db.query(Match).filter(Match.sport_id == sport_id, Match.is_live == False)
 
     if league_ids:
         league_id_list = [int(x) for x in league_ids.split(',')]
@@ -105,11 +107,11 @@ def get_matches_by_sport(
 
 @router.get("/leagues/{league_id}/matches", response_model=List[MatchResponse])
 def get_matches_by_league(
-    league_id: int,
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        league_id: int,
+        start_date: Optional[datetime] = Query(None),
+        end_date: Optional[datetime] = Query(None),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     league = db.query(League).filter(League.id == league_id).first()
     if not league:
@@ -133,9 +135,9 @@ def get_matches_by_league(
 
 @router.get("/matches/{match_id}/odds", response_model=MatchOddsResponse)
 def get_match_odds(
-    match_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        match_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     match = db.query(Match).options(
         joinedload(Match.home_team),
@@ -196,11 +198,12 @@ def get_match_odds(
         markets=markets_response
     )
 
+
 @router.get("/sports/{sport_id}/markets", response_model=List[MarketResponse])
 def get_markets_by_sport(
-    sport_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        sport_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     sport = db.query(Sport).filter(Sport.id == sport_id).first()
     if not sport:
@@ -217,10 +220,10 @@ def get_markets_by_sport(
 
 @router.get("/sports/{sport_id}/markets/{market_id}/options", response_model=MarketOptionsResponse)
 def get_market_options(
-    sport_id: int,
-    market_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        sport_id: int,
+        market_id: int,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     base = (
         db.query(MatchMarket)
@@ -242,19 +245,19 @@ def get_market_options(
     response_model=List[MatchWithBestOddsResponse],
 )
 def get_matches_with_best_odds(
-    sport_id: int,
-    league_ids: Optional[str] = Query(None),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    search: Optional[str] = Query(None),
-    market_id: int = Query(..., description="ID du marché (market.id)"),  
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+        sport_id: int,
+        league_ids: Optional[str] = Query(None),
+        start_date: Optional[datetime] = Query(None),
+        end_date: Optional[datetime] = Query(None),
+        search: Optional[str] = Query(None),
+        market_id: int = Query(..., description="ID du marché (market.id)"),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
 ):
     sport = db.query(Sport).filter(Sport.id == sport_id).first()
     if not sport:
         raise HTTPException(status_code=404, detail="Sport not found")
-    
+
     # Si market_id n'est pas fourni → récupérer l'id du marché "ml" pour ce sport
     if market_id is None:
         ml_market = (
@@ -359,16 +362,16 @@ def get_matches_with_best_odds(
 
 @router.get("/best-ev", response_model=BestEVListResponse)
 def get_best_ev_opportunities(
-    bookmaker_id: Optional[int] = Query(None),
-    min_odds: Optional[float] = Query(None),
-    max_odds: Optional[float] = Query(None),
-    min_ev: Optional[float] = Query(None),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        bookmaker_id: Optional[int] = Query(None),
+        min_odds: Optional[float] = Query(None),
+        max_odds: Optional[float] = Query(None),
+        min_ev: Optional[float] = Query(None),
+        start_date: Optional[datetime] = Query(None),
+        end_date: Optional[datetime] = Query(None),
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100),
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
     query = (
         db.query(
@@ -388,7 +391,7 @@ def get_best_ev_opportunities(
         .join(Sport, Match.sport_id == Sport.id)
         .join(Market, MatchMarket.market_id == Market.id)
         .join(Bookmaker, BookmakerOdd.bookmaker_id == Bookmaker.id)
-        .filter(BookmakerOdd.edge_odds.isnot(None))
+        .filter(BookmakerOdd.edge_odds.isnot(None), Match.is_live == False)
     )
 
     if bookmaker_id:

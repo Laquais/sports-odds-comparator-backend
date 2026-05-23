@@ -43,7 +43,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
     hashed_password = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
     is_active = Column(Boolean, default=True)
 
 
@@ -62,7 +62,7 @@ class UserBet(Base):
     odds = Column(Float, nullable=False)
     stake = Column(Float, nullable=False)
     bet_type = Column(String(20), default="freebet")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     user = relationship("User")
 
@@ -158,6 +158,7 @@ class Match(Base):
     home_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=True)
     away_team_id = Column(Integer, ForeignKey('team.id', ondelete="CASCADE"), nullable=True)
     start_time = Column(DateTime, nullable=False)
+    is_live = Column(Boolean, default=False, nullable=False)
 
     league = relationship("League", back_populates="matches")
     home_team = relationship("Team", foreign_keys=[home_team_id])
